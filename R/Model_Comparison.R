@@ -15,24 +15,65 @@
 
 #######################################################################################
 # Read in the predicted vs observed values of increment
+#######################################################################################
 
-# model 1
-m1.dbh <- readRDS("tree.size.only.modelpred.obs.out.of.sample.dbh.rds")
-m1.inc <- readRDS("tutorial/outputs/tree.size.only.modelpred.obs.out.of.sample.inc.rds")
+# list all model files with .dbh.rds or .inc.rds ending
+dbh.files <- paste0("tutorial/outputs/", list.files(path = "tutorial/outputs/",".dbh.rds"))
+inc.files <- paste0("tutorial/outputs/", list.files(path = "tutorial/outputs/",".inc.rds"))
+
+# read all of them in:
+dbh.file.list <- lapply(dbh.files, readRDS)
+inc.file.list <- lapply(inc.files, readRDS)
+
+dbh.file.df <- do.call(rbind, dbh.file.list)
+inc.file.df <- do.call(rbind, inc.file.list)
+
+# make sure that each member of the list has the appropriate modelname
+dbh.model.names.list <- lapply(list.files(path = "tutorial/outputs/",".dbh.rds"), function(x){substr(x,0,  nchar(x) - 31)})
+inc.model.names.list <- lapply(list.files(path = "tutorial/outputs/",".inc.rds"), function(x){substr(x,0,  nchar(x) - 30)})
 
 
-# model 2
-
-
-# model 3
-m3.dbh <- readRDS("tutorial/outputs/TmaxPPTX.pred.obs.out.of.sample.dbh.rds")
-m3.inc <- readRDS("tutorial/outputs/TmaxPPTXpred.obs.out.of.sample.inc.rds")
-
-# model 4
+dbh.file.df$model <- rep(unlist(dbh.model.names.list), sapply(dbh.file.list, nrow)) # add a model column for each DBH fit
+inc.file.df$model <- rep(unlist(inc.model.names.list), sapply(inc.file.list, nrow)) # add a model column for each inc fit
 
 #######################################################################################
-# Combine all data frames & calculate model validation summary stats
+# Calculate model validation summary stats
+#######################################################################################
+# MSPE-mean squared predictive error
+# RMSE-root mean squared predictive error
+# MAPE-mean absolute predictive error
+# V1-check for bias over time
+# V2-accuracy of MSPE estimates
+# V3-goodness of fit to compare across models
+# PPL- calculating posterior predictive loss for model comparison:
+
+#PPL = sum((Zobs - predZ)^2) - sum(var(predZ))
+# for diameters
+in.sample.validation.dbh.metrics <- dbh.file.df %>% group_by(model) %>% summarise(DBH_MSPE = mean((z.data-mean.ci)^2, na.rm =TRUE),
+                                                                                  DBH_RMSPE = sqrt(mean((z.data-mean.ci)^2, na.rm =TRUE)),
+                                                                                  DBH_MAPE = mean(abs(z.data-mean.ci), na.rm =TRUE)) #,
+#V1 = mean(inc.data-mean.ci, na.rm =TRUE)/(sum(predvar)^(1/2))/n(), # estimate of bias in predictors over time (close to 0 = unbiased)
+#V2 = (mean((inc.data-mean.ci)^2, na.rm =TRUE)/(sum(predvar)/n()^(1/2))),  # estimate of accuracy of MSPEs (close to 1 = accurate)
+#V3 = (mean((inc.data-mean.ci)^2,na.rm =TRUE)^(1/2)),
+#PPL = sum((inc.data - mean.ci)^2, na.rm = TRUE) + sum(predvar, na.rm = TRUE)) # posterior predictive loss# goodness of fit estimate (small = better fit)
+in.sample.validation.dbh.metrics$validation <- "in-sample"
+
+
+# for increments
+in.sample.validation.inc.metrics <- inc.file.df %>% group_by(model) %>% summarise(INC_MSPE = mean((inc.data-mean.ci)^2, na.rm =TRUE),
+                                                                                  INC_RMSPE = sqrt(mean((inc.data-mean.ci)^2, na.rm =TRUE)),
+                                                                                  INC_MAPE = mean(abs(inc.data-mean.ci), na.rm =TRUE)) #,
+in.sample.validation.inc.metrics$validation <- "in-sample"
+
+in.sample.validation <- left_join(in.sample.validation.dbh.metrics, in.sample.validation.inc.metrics)
 
 #######################################################################################
 # Generate some plots to compare model fits
+#######################################################################################
+ggplot(in.sample.validation, aes(x = DBH_MSPE, y = INC_MSPE, color = model))+geom_point()+theme_bw()
 
+# Lower values of MSPE indicate a better model fit. Which model best predictions increment, and which is best at diameter?
+# Based on this, which model should we choose?
+
+# Note: These are all in-sample validation metrics. Additional DBH measurements could be used to do an
+# "out-of-sample" model comparison. Out of sample increment data would also be helpful to do an out-of sample validation. 
