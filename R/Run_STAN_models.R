@@ -68,14 +68,14 @@ par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","alpha_TREE[1
 
 # traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
 png(height = 4, width = 7, units = "in", res = 100, paste0("tutorial/outputs/traceplots_tutorial_", model.name, ".png"))
-traceplot (model.3, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
+traceplot (model.1, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
 dev.off()
 
 # check the pairs plots for posterior correlations
 # posterior correlations in the model might be expected, for example between an intercept and a slope, 
 # or they could cause problems with sampling/identifiablility
 png(height = 7, width = 7, units = "in", res = 100, paste0("tutorial/outputs/pairs_plot_tutorial_", model.name, ".png"))
-pairs(model.3, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","alpha_TREE[1]", "alpha_TREE[2]"))
+pairs(model.1, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","alpha_TREE[1]", "alpha_TREE[2]"))
 dev.off()
 # sigma_inc and sigma_add have somme posterior correlations, as do the alpha_TREE values with the tree size effect
 
@@ -117,9 +117,9 @@ ggsave(here("tutorial/outputs", paste0("covariate_violin_plots_", model.name, ".
 # lets compare the predicted vs observed for the increments and the diameters:
 
 # seelect the diameter estimates (x.pred) from the model.3 dataframe
-x.pred <- dplyr::select(as.data.frame(model.3),"x[1,1]":paste0("x[", model.data$Nrow, ",", model.data$Ncol,"]"))
+x.pred <- dplyr::select(as.data.frame(model.1),"x[1,1]":paste0("x[", model.data$Nrow, ",", model.data$Ncol,"]"))
 # select the increment estimates (inc) from the model.3 dataframe
-inc.pred <- dplyr::select(as.data.frame(model.3),"inc[1,1]":paste0("inc[", model.data$Nrow, ",", model.data$Ncol,"]"))
+inc.pred <- dplyr::select(as.data.frame(model.1),"inc[1,1]":paste0("inc[", model.data$Nrow, ",", model.data$Ncol,"]"))
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
