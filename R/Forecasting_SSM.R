@@ -31,7 +31,17 @@ clim.data <- readRDS("/Users/kellyheilman/Downloads/PRISM_non_scaled.rds")
 
 clim.ts <- readRDS("/Users/kellyheilman/Downloads/pipo.cores.ds.mean.correct.climate_2018_2099.RDS")
 colnames(clim.ts)[6:7] <-c("year.ppt", "tmax.fall.spr") 
+unique(clim.ts$lon)
 
+
+clim.ts.df <- clim.ts #$future.climate.ts
+clim.ts.df$tmax.fall.spr[is.nan(clim.ts.df$tmax.fall.spr)] <- NA
+#tmax.fallspr.df <- tmax.fallspr
+
+
+# need to scale future climate data on the same scale as the past climate
+clim.ts.df$ppt.scale <-(clim.ts.df$year.ppt-mean(as.matrix(clim.data$wintP.wateryr)))/sd(as.matrix(clim.data$wintP.wateryr))
+clim.ts.df$tmax.scaled <-(clim.ts.df$tmax.fall.spr-mean(as.matrix(clim.data$tmax.fallspr)))/sd(as.matrix(clim.data$tmax.fallspr))
 
 clim.ts.df <- clim.ts #$future.climate.ts
 clim.ts.df$tmax.fall.spr[is.nan(clim.ts.df$tmax.fall.spr)] <- NA
