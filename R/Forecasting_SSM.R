@@ -29,28 +29,21 @@
 # read the rds with climate scenarios:
 clim.data <- readRDS("/Users/kellyheilman/Downloads/PRISM_non_scaled.rds")
 
-clim.ts <- readRDS("/Users/kellyheilman/Downloads/pipo.cores.ds.mean.correct.climate_2018_2099.RDS")
-colnames(clim.ts)[6:7] <-c("year.ppt", "tmax.fall.spr") 
-unique(clim.ts$lon)
+clim.ts <- readRDS("/Users/kellyheilman/Downloads/pipo.cores.with.downscaled.hydro.ppt.climatev4.rds")
+clim.ts.df <- clim.ts$future.climate.ts
+#colnames(clim.ts)[6:7] <-c("year.ppt", "tmax.fall.spr") 
+clim.ts <- readRDS("/Users/kellyheilman/Downloads/pipo.cores.with.downscaled.hydro.ppt.climatev4.rds")
 
-
-clim.ts.df <- clim.ts #$future.climate.ts
+clim.ts.df <- clim.ts$future.climate.ts
 clim.ts.df$tmax.fall.spr[is.nan(clim.ts.df$tmax.fall.spr)] <- NA
-#tmax.fallspr.df <- tmax.fallspr
-
-
-# need to scale future climate data on the same scale as the past climate
-clim.ts.df$ppt.scale <-(clim.ts.df$year.ppt-mean(as.matrix(clim.data$wintP.wateryr)))/sd(as.matrix(clim.data$wintP.wateryr))
-clim.ts.df$tmax.scaled <-(clim.ts.df$tmax.fall.spr-mean(as.matrix(clim.data$tmax.fallspr)))/sd(as.matrix(clim.data$tmax.fallspr))
-
-clim.ts.df <- clim.ts #$future.climate.ts
 clim.ts.df$tmax.fall.spr[is.nan(clim.ts.df$tmax.fall.spr)] <- NA
-#tmax.fallspr.df <- tmax.fallspr
+tmax.fallspr.df <- clim.ts$time_data$tmax.fallspr[!duplicated(clim.ts$time_data$tmax.fallspr),]
+ppt.full.df <- clim.ts$time_data$wintP.wateryr[!duplicated(clim.ts$time_data$wintP.wateryr),]
 
 
-# need to scale future climate data on the same scale as the past climate
-clim.ts.df$ppt.scale <-(clim.ts.df$year.ppt-mean(as.matrix(clim.data$wintP.wateryr)))/sd(as.matrix(clim.data$wintP.wateryr))
-clim.ts.df$tmax.scaled <-(clim.ts.df$tmax.fall.spr-mean(as.matrix(clim.data$tmax.fallspr)))/sd(as.matrix(clim.data$tmax.fallspr))
+# need to scale future climate data on the same scale as the past climate (but need to do it by plot?)
+clim.ts.df$ppt.scale <-(clim.ts.df$year.ppt-mean(as.matrix(ppt.full.df)))/sd(as.matrix(ppt.full.df))
+clim.ts.df$tmax.scaled <-(clim.ts.df$tmax.fall.spr-mean(as.matrix(tmax.fallspr.df)))/sd(as.matrix(tmax.fallspr.df))
 
 
 # need to fix this so that it aligns with trees, not plots
@@ -218,7 +211,8 @@ forecast.tree <- function(m){
   for(t in 1:time_steps){
     if(t == 1){
       inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  betas.all = betas.all, alpha.tree = alpha_trees[,m], 
-                                         SDdbh = 0, 
+                                         SDdbh = median(sigma$sigma_dbh), 
+                                         SDinc = median(sigma$sigma_inc),
                                          covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter( year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
                                                                  PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(  year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale))%>% distinct() %>% select(ppt.scale))), 
                                                                  SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered %>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct()%>% select(ppt.scale)))))))
@@ -228,7 +222,8 @@ forecast.tree <- function(m){
     }else{
       
       inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  betas.all = betas.all, alpha.tree = alpha_trees[,m], 
-                                         SDdbh = 0, 
+                                         SDdbh = median(sigma$sigma_dbh), 
+                                         SDinc = median(sigma$sigma_inc),
                                          covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
                                                                  PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale))), 
                                                                  SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale)))))))
@@ -270,6 +265,8 @@ lapply(unique(future.clim.subset.26$ID), forecast.tree)
 
 ## Improvements still needed here
 # 1. Checking future climate & matching to the trees (non of the trees with the new model have a growth decline)
+# 1a. Check the future plot scaling--I think its fixed up!
+# 1b. Check that the plots/trees match the future climate data
 # 2. Save the forecast plots --not saving within the function
 # 3. using sigma_inc for the uncertainty
 # 4. Uncertainty partitioning function
