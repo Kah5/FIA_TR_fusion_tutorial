@@ -95,26 +95,47 @@ iterate_statespace.inc <- function( x = x.pred[,1],  betas.all, alpha.tree,  SDd
     if(nrow(covariates) > 1){ # if there are mulitple values for each future covariate
       
       # predict tree growth from tree values and posterior covariates
-      tree.growth.list <- lapply(X = 1:nrow(covariates), FUN = function(x){alpha.tree +# sampled from tree level alpha randome effect
+      tree.growth.list <- lapply(X = 1:nrow(covariates), FUN = function(p){alpha.tree +# sampled from tree level alpha randome effect
           betas.all[,1]*(x) + # Tree Size effect
-          as.matrix(betas.all[,2:length(betas.all)]) %*% as.numeric(covariates[x,])})  # multiply by the rest of the covariate values
+          as.matrix(betas.all[,2:length(betas.all)]) %*% as.numeric(covariates[p,])})  # multiply by the rest of the covariate values
       tree.growth <- do.call(rbind, tree.growth.list)
+      increment <- apply(tree.growth, 1, function(n){rlnorm(n = 1, meanlog = n, sdlog = SDinc)})
+      #increment <- do.call(rbind, lapply(tree.growth, function(n){rlnorm(n = 1, meanlog = n, sdlog = SDinc)}))
       
-    }else{ # if its just a single/mean value
       
-      # predict tree growth from tree values and posterior covariates
-      tree.growth <- alpha.tree +# sampled from tree level alpha randome effect
-        betas.all[,1]*(x) + # Tree Size effect
-        as.matrix(betas.all[,2:length(betas.all)]) %*% as.numeric(covariates)  # multiply by the rest of the covariate values
+    }else{ 
+      #if(nrow(betas.all)>1)
+      if(nrow(betas.all)>1){
+        # if covariates are just a single/mean value, but betas have uncertainty
+        
+        # predict tree growth from tree values and posterior covariates
+        tree.growth <- alpha.tree +# sampled from tree level alpha randome effect
+          betas.all[,1]*(x) + # Tree Size effect
+          as.matrix(betas.all[,2:length(betas.all)]) %*% as.numeric(covariates) # multiply by the rest of the covariate values
+        increment <- apply(tree.growth, 1, function(n){rlnorm(n = 1, meanlog = n, sdlog = SDinc)})
+        
+      }else{ # if we are using beta means
+        
+        # predict tree growth from tree values and posterior covariates
+        tree.growth <- alpha.tree +# sampled from tree level alpha randome effect
+          betas.all[,1]*(x) + # Tree Size effect
+          sum(betas.all[,2:length(betas.all)] *covariates)  # multiply by the rest of the covariate values
+        increment <- do.call(rbind, lapply(tree.growth, function(n){rlnorm(n = 1, meanlog = n, sdlog = SDinc)}))
+        
+      }
       
       
     }}else{ # if the model just as one single value
       # predict tree growth from tree values and poseterior covariates
       tree.growth <- alpha.tree +# sampled from tree level alpha randome effect
         betas.all[,1]*(x) # Tree Size effect
+      
+      increment <- apply(tree.growth, 1, function(n){rlnorm(n = 1, meanlog = n, sdlog = SDinc)})
+      
     }
+  
+  
   #tree.growth <-  ifelse(tree.growth < 0, 0, tree.growth) # we should actually sample from lognormal distribution here
-  increment <- apply(tree.growth, 1, function(x){rlnorm(n = 1, meanlog = x, sdlog = SDinc)})
   
   #xpred <- rnorm(length(tree.growth), (tree.growth + x), SDdbh) 
   
@@ -135,6 +156,11 @@ iterate_statespace.inc <- function( x = x.pred[,1],  betas.all, alpha.tree,  SDd
 m <- 1
 future.ens <- future.clim.subset.26 %>% filter(ID == m)
 ens.proj.ordered <-  future.ens[order( future.ens$year),]
+
+ens.proj.means <- ens.proj.ordered %>% group_by(year) %>% summarise(meantmax = mean(tmax.scaled))
+ggplot(ens.proj.ordered, aes(x = as.numeric(year), y = tmax.scaled, group=modelrun))+geom_line()
+ggplot(ens.proj.means, aes(x = as.numeric(year), y = meantmax))+geom_line()
+
 #ggplot(proj.ordered, aes(as.numeric(year), mean.ppt))+geom_point()+stat_smooth()
 # just use the ensemble means (w.out driver uncertainty)
 
@@ -186,6 +212,8 @@ dbh.forecast.m <- reshape2::melt(dbh.ic) %>% group_by(Var2) %>% spread(Var1, val
 ggplot()+geom_line(data = dbh.forecast.m, aes(x = Var2, y = `50%`))+
   geom_ribbon(data = dbh.forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
   ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+
+
 #-------------------------------------------------------------------------------------------
 # Do the same thing but add in climate uncertainty
 #-------------------------------------------------------------------------------------------
@@ -197,9 +225,14 @@ ggplot()+geom_line(data = dbh.forecast.m, aes(x = Var2, y = `50%`))+
 forecast.tree <- function(m){
   # now filter for the full ensemble
   #unique(future.clim.subset.26$ID) # only have future climate for a fraction of trees??
-  m.clim <- unique(future.clim.subset.26$ID)[m]
-  future.ens <- future.clim.subset.26 %>% filter(ID == m.clim)
+  #m.clim <- unique(future.clim.subset.26$ID)[m]
+  #future.ens <- future.clim.subset.26 %>% filter(ID == m.clim)
+  future.ens <- future.clim.subset.26 %>% filter(ID == m)
   ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ggplot(ens.proj.ordered, aes(x = as.numeric(year), y = tmax.scaled, group=modelrun))+geom_line()
   unique(ens.proj.ordered$modelrun)
   # set up the output matrices
   time_steps <- length(2018:2098)
@@ -253,21 +286,514 @@ forecast.tree <- function(m){
     geom_ribbon(data = dbh.forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
     ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
   
-  png(height = 4, width = 8, units = "in", res = 150, paste0("tutorial/outputs/increment_forecast_",m, ".png"))
+  #png(height = 4, width = 8, units = "in", res = 150, paste0("tutorial/outputs/increment_forecast_",m, ".png"))
   plot_grid(dbh.gg,inc.gg, align = "hv", ncol = 2)
-  dev.off()
+  ggsave(height = 4, width = 8, units = "in", paste0("tutorial/outputs/increment_forecast_",m, ".png"))
+  #dev.off()
   
 }
 
 forecast.tree(m = 8)
+forecast.tree(m=9)
 lapply(unique(future.clim.subset.26$ID), forecast.tree)
 
 
-## Improvements still needed here
-# 1. Checking future climate & matching to the trees (non of the trees with the new model have a growth decline)
-# 1a. Check the future plot scaling--I think its fixed up!
-# 1b. Check that the plots/trees match the future climate data
-# 2. Save the forecast plots --not saving within the function
-# 3. using sigma_inc for the uncertainty
-# 4. Uncertainty partitioning function
-# 5. Write this up so students can just call the functions and run with it for a given tree
+
+#-------------------------------------------------------------------------------------------
+# Forecast with uncertainty partitioning
+#-------------------------------------------------------------------------------------------
+# This function makes 4 forecasts, adding a new type of uncertainty in each new forecast--
+# Initial condition uncertainty (uncertainty in tree size at 2018), 
+# Parameter Uncertainty (associated with fixed effects & random effects)
+forecast.tree.uncertainty.partitioning <- function(m, future.climate = future.clim.subset.26){
+  # now filter for the full ensemble
+  future.ens <- future.climate %>% filter(ID == m)
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ens.proj.means <- ens.proj.ordered %>% group_by(year) %>% summarise(meantmax = mean(tmax.scaled))
+  
+  #------------------------------------------------
+  # Tree Size (Initial conditions uncertainty) only
+  time_steps <- length(2018:2099)
+  nMCMC <- length(x.pred[,"x[1,1]"])
+  forecast <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  dbh <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  betas.point <- matrix(colMeans(betas.all), nrow = 1, ncol = length(colMeans(betas.all)))
+  alphas.point <- matrix(colMeans(alpha_trees), nrow = 1, ncol = length(colMeans(alpha_trees)))
+  
+  # just for 1 tree # note that we start at x = 53
+  for(t in 1:time_steps){
+    if(t == 1){
+      inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  
+                                         betas.all = betas.point, 
+                                         alpha.tree = alphas.point[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered %>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))#covariates[t,])
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+x.pred[,paste0("x[", m,",", 53,"]")]
+      
+    }else{
+      
+      inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  betas.all = betas.point, alpha.tree = alphas.point[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+dbh[,t-1]
+      
+    }
+    
+    
+  }
+  
+  
+  varianceIC <- apply(forecast,2,var) # get variance from IC
+  forecast.ic <- apply(forecast, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  forecast.m <- reshape2::melt(forecast.ic) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = forecast.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter increment")+theme_bw()+xlab("Years after 2018")
+  
+  var.dbh.ic <- apply(dbh, 2, var)
+  dbh.ic <- apply(dbh, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  dbh.forecast.m <- reshape2::melt(dbh.ic) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = dbh.forecast.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = dbh.forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+  
+  #---------------------------------------
+  # Parameter Uncertainty--Uncertainty around fixed effects 
+  #---------------------------------------
+  time_steps <- length(2018:2099)
+  nMCMC <- length(x.pred[,"x[1,1]"])
+  forecast <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  dbh <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  
+  # just for 1 tree # note that we start at x = 53
+  for(t in 1:time_steps){
+    if(t == 1){
+      inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  
+                                         betas.all = betas.all, 
+                                         alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))#covariates[t,])
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+x.pred[,paste0("x[", m,",", 53,"]")]
+      
+    }else{
+      
+      inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  betas.all = betas.all, alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+dbh[,t-1]
+      
+    }
+    
+    
+  }
+  
+  
+  variancePARAM <- apply(forecast,2,var) # get variance from IC
+  forecast.PARAM <- apply(forecast, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  forecastPARAM.m <- reshape2::melt(forecast.PARAM) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = forecastPARAM.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter increment")+theme_bw()+xlab("Years after 2018")
+  
+  var.dbh.PARAM <- apply(dbh, 2, var)
+  dbh.PARAM <- apply(dbh, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  dbh.forecastPARAM.m <- reshape2::melt(dbh.PARAM) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = dbh.forecastPARAM.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = dbh.forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+  
+  #---------------------------------------
+  # Process uncertainty (process errors)
+  #---------------------------------------
+  time_steps <- length(2018:2099)
+  nMCMC <- length(x.pred[,"x[1,1]"])
+  forecast <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  dbh <- matrix(data = NA, nrow = nMCMC, ncol = time_steps)
+  
+  # just for 1 tree # note that we start at x = 53
+  for(t in 1:time_steps){
+    if(t == 1){
+      inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  betas.all = betas.all, alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = mean(sigma[,"sigma_add"]),
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))#covariates[t,])
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+x.pred[,paste0("x[", m,",", 53,"]")]
+      
+    }else{
+      
+      inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  betas.all = betas.all, alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = mean(sigma[,"sigma_add"]),
+                                         #SDadd = 0,
+                                         covariates = data.frame(TMAX = mean(as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(tmax.scaled)))), na.rm =TRUE), 
+                                                                 PPT= mean(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(ID %in% m & year %in% (2017 + t) & rcp %in% "rcp26") %>% select(ppt.scale))), na.rm =TRUE), 
+                                                                 SDI = model.data$SDI[m]))
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+dbh[,t-1]
+      
+    }
+    
+    
+  }
+  
+  
+  variancePROCESS <- apply(forecast,2,var) # get variance from IC
+  forecast.PROCESS <- apply(forecast, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  forecastPROCESS.m <- reshape2::melt(forecast.PROCESS) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = forecastPROCESS.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter increment")+theme_bw()+xlab("Years after 2018")
+  
+  var.dbh.PROCESS <- apply(dbh, 2, var)
+  dbh.PROCESS <- apply(dbh, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  dbh.forecastPROCESS.m <- reshape2::melt(dbh.PROCESS) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  ggplot()+geom_line(data = dbh.forecastPROCESS.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = dbh.forecast.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+  
+  #---------------------------------------
+  # Driver uncertainty (future climate driver uncertainty)
+  #---------------------------------------
+  # Since we have been adding in uncertainty this is the Full Forecast:
+  future.ens <- future.clim.subset.26 %>% filter(ID == m)
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ggplot(ens.proj.ordered, aes(x = as.numeric(year), y = tmax.scaled, group=modelrun))+geom_line()
+  unique(ens.proj.ordered$modelrun)
+  # set up the output matrices
+  time_steps <- length(2018:2098)
+  nMCMC <- length(x.pred[,"x[1,1]"])
+  forecast <- matrix(data = NA, nrow = nMCMC*21, ncol = time_steps)
+  dbh <- matrix(data = NA, nrow = nMCMC*21, ncol = time_steps)
+  
+  # just for 1 tree # note that we start at x = 53
+  for(t in 1:time_steps){
+    if(t == 1){
+      inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  
+                                         betas.all = betas.all, 
+                                         alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = median(sigma$sigma_add),
+                                         covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter( year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
+                                                                 PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(  year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale))%>% distinct() %>% select(ppt.scale))), 
+                                                                 SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered %>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct()%>% select(ppt.scale)))))))
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+x.pred[,paste0("x[", m,",", 53,"]")]
+      
+    }else{
+      
+      inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  
+                                         betas.all = betas.all, 
+                                         alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = 0,
+                                         #SDadd = median(sigma$sigma_add),
+                                         covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
+                                                                 PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale))), 
+                                                                 SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale)))))))
+      
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+dbh[,t-1]
+      
+    }
+    
+    
+  }
+  
+  Varianceclimate <- apply(forecast,2,var) # get variance from IC
+  forecast.clim <- apply(forecast, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  forecast.m.clim <- reshape2::melt(forecast.clim) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  inc.gg <- ggplot()+geom_line(data = forecast.m.clim, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = forecast.m.clim, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter increment")+theme_bw()+xlab("Years after 2018")
+  inc.gg 
+  
+  var.dbh.clim <- apply(dbh, 2, var)
+  dbh.clim <- apply(dbh, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  dbh.forecast.m.clim<- reshape2::melt(dbh.clim) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  dbh.gg <- ggplot()+geom_line(data = dbh.forecast.m.clim, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = dbh.forecast.m.clim, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+  dbh.gg 
+  
+  #---------------------------------------
+  # Process and Driver Uncertainty!
+  #---------------------------------------
+  # Since we have been adding in uncertainty this is the Full Forecast:
+  future.ens <- future.clim.subset.26 %>% filter(ID == m)
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ens.proj.ordered <-  future.ens[order( future.ens$year),]
+  
+  ggplot(ens.proj.ordered, aes(x = as.numeric(year), y = tmax.scaled, group=modelrun))+geom_line()
+  unique(ens.proj.ordered$modelrun)
+  # set up the output matrices
+  time_steps <- length(2018:2098)
+  nMCMC <- length(x.pred[,"x[1,1]"])
+  forecast <- matrix(data = NA, nrow = nMCMC*21, ncol = time_steps)
+  dbh <- matrix(data = NA, nrow = nMCMC*21, ncol = time_steps)
+  
+  # just for 1 tree # note that we start at x = 53
+  for(t in 1:time_steps){
+    if(t == 1){
+      inc.pred <- iterate_statespace.inc(x = x.pred[,paste0("x[", m,",", 53,"]")],  
+                                         betas.all = betas.all, 
+                                         alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = median(sigma$sigma_add),
+                                         #SDadd = median(sigma$sigma_add),
+                                         covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter( year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
+                                                                 PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter(  year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale))%>% distinct() %>% select(ppt.scale))), 
+                                                                 SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered %>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct()%>% select(ppt.scale)))))))
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+x.pred[,paste0("x[", m,",", 53,"]")]
+      
+    }else{
+      
+      inc.pred <- iterate_statespace.inc(x = dbh[,t-1],  
+                                         betas.all = betas.all, 
+                                         alpha.tree = alpha_trees[,m], 
+                                         SDdbh = 0, 
+                                         SDinc = median(sigma$sigma_add),
+                                         #SDadd = median(sigma$sigma_add),
+                                         covariates = data.frame(TMAX = as.numeric(as.matrix(data.frame(ens.proj.ordered %>% ungroup()%>% filter(year %in% (2017 + t) &  rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(tmax.scaled)))), 
+                                                                 PPT = as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale))), 
+                                                                 SDI = rep(model.data$SDI[m], length(as.vector(data.matrix(ens.proj.ordered%>% ungroup() %>% filter( year %in% (2017 + t) & rcp %in% "rcp26" & !is.na(ppt.scale)) %>% distinct() %>% select(ppt.scale)))))))
+      
+      forecast[,t] <- inc.pred
+      dbh[,t] <- forecast[,t]+dbh[,t-1]
+      
+    }
+    
+    
+  }
+  
+  
+  VariancePROCESS <- apply(forecast,2,var) # get variance from IC
+  forecast.PROCESS <- apply(forecast, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  forecast.m.PROCESS <- reshape2::melt(forecast.PROCESS) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  inc.gg <- ggplot()+geom_line(data = forecast.m.PROCESS, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = forecast.m.clim, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter increment")+theme_bw()+xlab("Years after 2018")
+  inc.gg 
+  
+  var.dbh.PROCESS <- apply(dbh, 2, var)
+  dbh.PROCESS <- apply(dbh, 2, function(x){quantile(x, c(0.025, 0.25, 0.5, 0.975), na.rm = TRUE)})
+  dbh.forecastPROCESS.m <- reshape2::melt(dbh.clim) %>% group_by(Var2) %>% spread(Var1, value)
+  
+  dbh.gg <- ggplot()+geom_line(data = dbh.forecastPROCESS.m, aes(x = Var2, y = `50%`))+
+    geom_ribbon(data = dbh.forecastPROCESS.m, aes(x = Var2, ymin= `2.5%`, ymax = `97.5%`), fill = "brown", alpha = 0.5)+
+    ylab("forecasted diameter")+theme_bw()+xlab("Years after 2018")
+  
+  dbh.gg
+  
+  
+  
+  #-------------------------------------------------------------------------------------------
+  # Combine all the forecasts and make some partitioning plots
+  #-------------------------------------------------------------------------------------------
+  # make all the forecast and uncertainty partitioning 
+  
+  
+  
+  V.pred.sim.dbh     <- rbind(var.dbh.clim[1:81], var.dbh.PROCESS[1:81], var.dbh.PARAM[1:81], var.dbh.ic[1:81])
+  
+  # combine forecasts:
+  pred.sims.dbh     <- data.frame(IPP.0 = dbh.clim[1, 1:81],
+                                  IPD.0 = dbh.PROCESS[1, 1:81],
+                                  IPA.0 = dbh.PARAM[1, 1:81],
+                                  IP.0 = dbh.ic[1, 1:81],
+                                  
+                                  IPP.100 = dbh.clim[4, 1:81],
+                                  IPD.100 = dbh.PROCESS[4, 1:81],
+                                  IPA.100 = dbh.PARAM[4, 1:81],
+                                  IP.100 = dbh.ic[4, 1:81],
+                                  
+                                  year = 2018:2098)
+  
+  
+  
+  
+  V.pred.sim.inc     <- rbind(Varianceclimate[1:81], 
+                              variancePROCESS[1:81], 
+                              variancePARAM[1:81], 
+                              varianceIC[1:81])
+  
+  
+  pred.sims.inc     <- data.frame(IPP.0 = forecast.clim[1,1:81],
+                                  IPD.0 = forecast.PARAM[1,1:81],
+                                  IPA.0 = forecast.PROCESS[1,1:81],
+                                  IP.0 = forecast.ic[1,1:81],
+                                  
+                                  IPP.100 = forecast.clim[4,1:81],
+                                  IPD.100 = forecast.PARAM[4,1:81],
+                                  IPA.100 = forecast.PROCESS[4,1:81],
+                                  IP.100 = forecast.ic[4,1:81],
+                                  
+                                  year = 2018:2098)
+  #axis.name <- "Increment"
+  
+  #-------------------------------------------------------------------
+  # Make uncertainty partitioning plots 
+  #-------------------------------------------------------------------
+  
+  ## DBH plots
+  V.pred.sim.rel.inc <- apply(V.pred.sim.inc, 2, function(x) {x/max(x)})
+  
+  V.pred.sim.rel.dbh <- apply(V.pred.sim.dbh, 2, function(x) {x/max(x)})
+  
+  
+  pred.sims.m.dbh <- reshape2::melt(pred.sims.dbh, id.vars = "year")
+  pred.sims.class <- pred.sims.m.dbh %>% separate(col = variable, sep = "[.]", into = c("unc","lo")) %>%
+    spread(key = lo, value = value)
+  colnames(pred.sims.class) <- c("year", "uncertainty", "Low", "High")
+  my_cols <- c( "#d95f02",
+                         "#1b9e77",
+                         
+                         "black",
+                         "#7570b3", 
+                         "grey")
+                         
+  pred.sims.class$uncertainty <- factor(pred.sims.class$uncertainty, levels = c("IPP","IPD","IPA", "IP"))
+  
+  
+  predY_plot_dbh <- ggplot(data = pred.sims.class, aes(x=year, fill = uncertainty))+
+    geom_ribbon(aes(ymin=Low, ymax=High))+
+    ylab(axis.name)+
+    xlab("Year")+theme_bw()+
+    scale_fill_manual(values = my_cols, name = NULL)+ theme(legend.position = "none", panel.grid = element_blank())#+ylim(-10, 1)
+  
+  predY_plot_dbh
+  
+  ##--------------------------------------------------------------
+  #  Plot the proportion of uncertainty
+  #--------------------------------------------------------------
+  var_rel_preds <- as.data.frame(t(V.pred.sim.rel.dbh*100))
+  var_rel_preds$x <- 1:nrow(var_rel_preds)
+  
+  my_cols <- c(  "#d95f02",
+                          "#1b9e77",
+                          
+                          "black",
+                          "#7570b3", 
+                          "grey")
+                          tmpvar <- var_rel_preds
+                          tmpvar$year <- 2018:2098
+                          colnames(tmpvar) <- c( "Process Error","Driver Uncertainty","Parameter Uncertainty", "Initial Conditions", "x", "year")
+                          variance.df <- tmpvar %>% gather(simtype, variance, -x, -year)
+                          
+                          variance.df$simtype <- factor(variance.df$simtype, levels = c("Driver Uncertainty","Process Error","Parameter Uncertainty", "Initial Conditions"))
+                          
+                          prop.var.dbh <- ggplot(variance.df, aes(x=year, fill = simtype))+
+                            geom_ribbon(aes(ymin=0, ymax=variance), color = "grey")+
+                            ylab(paste("% of total variance diameter"))+    xlab("Year")+
+                            scale_fill_manual(values = my_cols, name = NULL)+#, 
+                            #labels = c("Process error", "Driver uncertainty",  "Parameter uncertainty","alpha uncertainty", "Initial conditions"))+
+                            scale_y_continuous(labels=paste0(seq(0,100,25),"%"), expand = c(0, 0))+
+                            theme_bw()+theme(panel.grid = element_blank())
+                          prop.var.dbh  
+                          
+                          
+                          #----------------------------------------
+                          # Make the same plots but for increments
+                          #----------------------------------------
+                          ## INCREMENT plots
+                          V.pred.sim.rel.inc <- apply(V.pred.sim.inc, 2, function(x) {x/max(x)})
+                          
+                          pred.sims.m.inc <- reshape2::melt(pred.sims.inc, id.vars = "year")
+                          pred.sims.class <- pred.sims.m.inc %>% separate(col = variable, sep = "[.]", into = c("unc","lo")) %>%
+                            spread(key = lo, value = value)
+                          colnames(pred.sims.class) <- c("year", "uncertainty", "Low", "High")
+                          my_cols <- c( "#d95f02",
+                                                 "#1b9e77",
+                                                 
+                                                 "black",
+                                                 "#7570b3", 
+                                                 "grey")
+                                                 
+                          pred.sims.class$uncertainty <- factor(pred.sims.class$uncertainty, levels = c("IPA","IPP","IPD", "IP"))
+                          
+                          
+                          predY_plot <- ggplot(data = pred.sims.class, aes(x=year, fill = uncertainty))+
+                            geom_ribbon(aes(ymin=Low, ymax=High))+
+                            ylab(axis.name)+
+                            xlab("Year")+theme_bw()+
+                            scale_fill_manual(values = my_cols, name = NULL)+ theme(legend.position = "none", panel.grid = element_blank())#+ylim(-10, 1)
+                          
+                          predY_plot
+                          
+                          ##--------------------------------------------------------------
+                          #  Plot the proportion of uncertainty
+                          #--------------------------------------------------------------
+                          var_rel_preds <- as.data.frame(t(V.pred.sim.rel.inc*100))
+                          var_rel_preds$x <- 1:nrow(var_rel_preds)
+                          
+                          my_cols <- c( "#d95f02",
+                                                 "#1b9e77",
+                                                 
+                                                 "black",
+                                                 "#7570b3", 
+                                                 "grey")
+                                                 tmpvar <- var_rel_preds
+                                                 tmpvar$year <- 2018:2098
+                                                 colnames(tmpvar) <- c("Process Error", "Driver Uncertainty","Parameter Uncertainty", "Initial Conditions", "x", "year")
+                                                 variance.df <- tmpvar %>% gather(simtype, variance, -x, -year)
+                                                 
+                                                 variance.df$simtype <- factor(variance.df$simtype, levels = c("Driver Uncertainty","Process Error","Parameter Uncertainty","Initial Conditions"))
+                                                 
+                                                 prop.var <- ggplot(variance.df, aes(x=year, fill = simtype))+
+                                                   geom_ribbon(aes(ymin=0, ymax=variance), color = "white")+
+                                                   ylab(paste("% of total variance diameter"))+    xlab("Year")+
+                                                   scale_fill_manual(values = my_cols, name = NULL)+#, 
+                                                   #labels = c("Process error", "Driver uncertainty",  "Parameter uncertainty","alpha uncertainty", "Initial conditions"))+
+                                                   scale_y_continuous(labels=paste0(seq(0,100,25),"%"), expand = c(0, 0))+
+                                                   theme_bw()+theme(panel.grid = element_blank())
+                                                 prop.var  
+                                                 
+                                                 
+                                                 plot_grid(predY_plot, prop.var, 
+                                                           predY_plot_dbh, prop.var.dbh, 
+                                                           ncol = 2, align = "hv", rel_widths = c(0.75, 1))
+                                                 ggsave(filename=paste0("tutorial/outputs/variance_partitioning_tree_",m,".jpg") ) 
+}
+forecast.tree.uncertainty.partitioning(m=2, future.climate = future.clim.subset.26)
+forecast.tree.uncertainty.partitioning(m=8, future.climate = future.clim.subset.26)
+
+
