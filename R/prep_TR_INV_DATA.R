@@ -1,15 +1,11 @@
-# install any packages you may be missing
-list.of.packages <- c("reshape2", "tidyverse", "dplR")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) {install.packages(new.packages)}
 
 # load the packages used by this script
 library(tidyverse)
 library(dplR)
 library(reshape2)
 library(rstan)
-library(rstan)
-options(mc.cores = parallel::detectCores())
+
+
 
 #------------------------Overview------------------------------------------
 # This code reads in example tree ring increment, diameter data, and covariate data for 
@@ -28,7 +24,7 @@ options(mc.cores = parallel::detectCores())
 # Read in the tree ring data
 #--------------------------------------------------------------------------------
 # if the data is in .rwl (tucson format). the function read.rwl from dplR 
-rw.format <- read.rwl( "tutorial/INC_tutorial_rw.rwl")
+rw.format <- read.rwl("data/INC_tutorial_rw.rwl")
 head(rw.format) # rwl files are read in with years as rows/rownames and trees as columns
 
 summary(rw.format) # dplR summary gives you more infomation on the ring width data for each tree
@@ -78,7 +74,7 @@ head(rw.spread)
 # our diameter data is in a .csv file with information about the tree id and the year the diameter was sampled
 # you can use this as a guide to format your own diameter data
 # Note on units: Our diameter data is already in centimeters!
-DBH.data <- read.csv("tutorial/DBH_tutorial_data.csv")
+DBH.data <- read.csv("data/DBH_tutorial_data.csv")
 summary(DBH.data) # our data has 3 columns for tree, year sampled, and for Diameter
 hist(DBH.data$DBH_cm, xlab = "Diameter (cm)")
 
@@ -102,7 +98,7 @@ summary(DBH.spread)
 #--------------------------------------------------------------------------------
 # Read in associated plot-level data
 #--------------------------------------------------------------------------------
-cov.data <- read.csv("tutorial/tutorial_covariates.csv")
+cov.data <- read.csv("data/tutorial_covariates.csv")
 head(cov.data)
 # note that these are all standardized variables already
 # covariate data can be linked to the tree ring data and diametr data by treeid 
@@ -117,7 +113,7 @@ summary(cov.data)
 #--------------------------------------------------------------------------------
 # Read in associated time-varying climate data
 #--------------------------------------------------------------------------------
-climate.long <- read.csv("tutorial/tutorial_climate.csv")
+climate.long <- read.csv("data/tutorial_climate.csv")
 head(climate.long)
 # This example climate data was extracted from PRISM climate data for each FIA plot
 # I have it in a dataframe that has a column for tree, time, and two of the climate variables we used
@@ -154,6 +150,7 @@ time_data$fall_spr_Tmax <- fall_spr_Tmax[, 2:length(fall_spr_Tmax)]
 # make it pretty small--50 trees
 set.seed(22)
 row.id.samp <- sample(1:518, 50, replace = FALSE)
+tree.id <- rw.spread[row.id.samp, ]$tree
 dat <- unique(rw.spread[row.id.samp,2:length(rw.spread)])
 
 # STAN does not by default take missing data, so we need indexing for a missing data model
