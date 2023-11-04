@@ -172,6 +172,10 @@ model.2 <- stan(file = "modelcode/model_noyearRE_X.stan",
                 pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaTmax", "betaPrecip", "betaX","alpha_TREE","x", "inc"))
 
 saveRDS(model.2, "outputs/model.2.RDS")
+
+
+# read in the long outputs
+model.2 <- readRDS("longOutputs/model.2.RDS")
 # get model diagnostics and save these to look at
 sampler_params <- get_sampler_params(model.2, inc_warmup = FALSE)
 
@@ -296,12 +300,22 @@ model.name <- "TmaxPPTX_SDI"
 # add in the tree size effect with out the year random effects but with climate
 model.3 <- stan(file = "modelcode/model_treesize_climate_sdi.stan",
                 data = model.data,
-                iter = 3000, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
+                iter = 100, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
                 #sample_file = model.name,
                 #adapt_delta = 0.99,
                 pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaTmax", "betaPrecip", "betaX",
                          "betaSDI","alpha_TREE","x", "inc"))
 
+
+
+# check the traceplots for the short model run:
+par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "alpha_TREE[1]")
+
+# traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
+traceplot (model.3, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
+
+# now load in the longer output to do the model checking:
+model.3 <- readRDS ("longOutputs/model.3.RDS")
 
 # get model diagnostics and save these to look at
 sampler_params <- get_sampler_params(model.3, inc_warmup = FALSE)
