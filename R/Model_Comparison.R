@@ -52,8 +52,8 @@ in.sample.validation.dbh.metrics <- dbh.file.df %>% group_by(model) %>% summaris
                                                                                   #V1 = mean(inc.data-mean.ci, na.rm =TRUE)/(sum(predvar)^(1/2))/n(), # estimate of bias in predictors over time (close to 0 = unbiased)
                                                                                   #V2 = (mean((inc.data-mean.ci)^2, na.rm =TRUE)/(sum(predvar)/n()^(1/2))),  # estimate of accuracy of MSPEs (close to 1 = accurate)
                                                                                   #V3 = (mean((inc.data-mean.ci)^2,na.rm =TRUE)^(1/2)),
-                                                                                  INC_PPL = sum((z.data - mean.ci)^2, na.rm = TRUE) + sum(predvar, na.rm = TRUE)) # posterior predictive loss# goodness of fit estimate (small = better fit)
-in.sample.validation.dbh.metrics$validation <- "diameter in-sample"
+                                                                                  DBH_PPL = sum((z.data - mean.ci)^2, na.rm = TRUE) + sum(predvar, na.rm = TRUE)) # posterior predictive loss# goodness of fit estimate (small = better fit)
+in.sample.validation.dbh.metrics$validation <- "in-sample"
 
 
 # for increments
@@ -61,7 +61,7 @@ in.sample.validation.inc.metrics <- inc.file.df %>% group_by(model) %>% summaris
                                                                                   INC_RMSPE = sqrt(mean((inc.data-mean.ci)^2, na.rm =TRUE)),
                                                                                   INC_MAPE = mean(abs(inc.data-mean.ci), na.rm =TRUE), 
                                                                                   INC_PPL = sum((inc.data - mean.ci)^2, na.rm = TRUE) + sum(predvar, na.rm = TRUE)) # posterior predictive loss# goodness of fit estimate (small = better fit)
-in.sample.validation.inc.metrics$validation <- "increment in-sample"
+in.sample.validation.inc.metrics$validation <- "in-sample"
 
 in.sample.validation <- left_join(in.sample.validation.dbh.metrics, in.sample.validation.inc.metrics)
 
@@ -69,7 +69,10 @@ in.sample.validation <- left_join(in.sample.validation.dbh.metrics, in.sample.va
 # Generate some plots to compare model fits
 #######################################################################################
 ggplot(in.sample.validation, aes(x = DBH_MSPE, y = DBH_PPL, color = model))+geom_point()+theme_bw()
+ggsave("outputs/DBH_model_comparison.png")
 ggplot(in.sample.validation, aes(x = INC_MSPE, y = INC_PPL, color = model))+geom_point()+theme_bw()
+ggsave("outputs/INC_model_comparison.png")
+
 
 # Lower values of MSPE indicate a better model fit. Which model best predictions increment, and which is best at diameter?
 # Based on this, which model should we choose?

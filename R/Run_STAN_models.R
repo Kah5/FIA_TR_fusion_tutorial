@@ -94,7 +94,7 @@ traceplot (model.1, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE)
 #dev.off()
 
 # Now that we have seen what traceplots look like when they have not converged, lets read in the output from the same model, but with 3000 samples
-model.1 <- readRDS("outputs/model.1.RDS")
+model.1 <- readRDS("longOutputs/model.1.RDS")
 
 png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/traceplots_tutorial_", model.name, ".png"))
 traceplot (model.1, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
@@ -269,7 +269,7 @@ inc.pred <- dplyr::select(as.data.frame(model.2),"inc[1,1]":paste0("inc[", model
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
-source("plot_pred_obs_data.R") # run script to make predicted vs obs plots
+source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # check the outputs folder, you should have two new pdfs, two new png files, and two new RDS files
 # this code plotted the predicted vs observed for this model 
 
@@ -309,10 +309,10 @@ model.3 <- stan(file = "modelcode/model_treesize_climate_sdi.stan",
 
 
 # check the traceplots for the short model run:
-par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "alpha_TREE[1]")
+par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "betaSDI","alpha_TREE[1]")
 
 # traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
-traceplot (model.3, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
+rstan::traceplot (model.3, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
 
 # now load in the longer output to do the model checking:
 model.3 <- readRDS ("longOutputs/model.3.RDS")
@@ -351,7 +351,7 @@ write.csv(convergence.stats, paste0("outputs/", model.name, "_convergence_stats.
 # also generate some plots of the parameters
 
 posterior <- as.array(model.3)
-par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "alpha_TREE[1]")
+par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "betaSDI","alpha_TREE[1]")
 
 # traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
 png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/traceplots_tutorial_", model.name, ".png"))
@@ -362,7 +362,7 @@ dev.off()
 # posterior correlations in the model might be expected, for example between an intercept and a slope, 
 # or they could cause problems with sampling/identifiablility
 png(height = 7, width = 7, units = "in", res = 100, paste0("outputs/pairs_plot_tutorial_", model.name, ".png"))
-pairs(model.3, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaPrecip", "alpha_TREE[1]", "alpha_TREE[2]"))
+pairs(model.3, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaSDI","betaPrecip", "alpha_TREE[1]", "alpha_TREE[2]"))
 dev.off()
 # sigma_inc and sigma_add have somme posterior correlations, as do the alpha_TREE values with the tree size effect
 
@@ -410,7 +410,7 @@ inc.pred <- dplyr::select(as.data.frame(model.3),"inc[1,1]":paste0("inc[", model
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
-source("plot_pred_obs_data.R") # run script to make predicted vs obs plots
+source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # check the outputs folder, you should have two new pdfs, two new png files, and two new RDS files
 # this code plotted the predicted vs observed for this model 
 
