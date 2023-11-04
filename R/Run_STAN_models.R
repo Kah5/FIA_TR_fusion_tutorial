@@ -65,7 +65,7 @@ sampler_diag <- data.frame(model.name = rep(model.name, 2),
 # we want few (no) divergent transitions so this is good
 sampler_diag
 # there are no divergent transistions in either chain, and acceptance rate > 0.89
-write.csv(sampler_diag,paste0("outputs/", model.name, "not_converged_sample_diag.csv"), row.names = FALSE)
+write.csv(sampler_diag, paste0("outputs/", model.name, "not_converged_sample_diag.csv"), row.names = FALSE)
 
 
 # get the convergence statistics of the model:
@@ -102,7 +102,7 @@ dev.off()
 # check the pairs plots for posterior correlations
 # posterior correlations in the model might be expected, for example between an intercept and a slope, 
 # or they could cause problems with sampling/identifiablility
-png(height = 7, width = 7, units = "in", res = 100, paste0("tutorial/outputs/pairs_plot_tutorial_", model.name, ".png"))
+png(height = 7, width = 7, units = "in", res = 100, paste0("outputs/pairs_plot_tutorial_", model.name, ".png"))
 pairs(model.1, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","alpha_TREE[1]", "alpha_TREE[2]"))
 dev.off()
 # sigma_inc and sigma_add have somme posterior correlations, as do the alpha_TREE values with the tree size effect
@@ -129,7 +129,7 @@ ggplot()+geom_point(data = tree.quant, aes(x = variable, y = median))+
   theme(axis.text = element_text(angle= 45, hjust = 1), panel.grid = element_blank())+
   ylab("Estimated effect")
 
-ggsave(here("tutorial/outputs", paste0("tree_random_effects_", model.name, ".png")))
+ggsave(paste0("outputs/tree_random_effects_", model.name, ".png"))
 
 
 # Make a violin plot of the fixed effects. 
@@ -138,7 +138,7 @@ head(covariates.m)
 
 # make violin plots of the samples to look at the medians & the uncertainty around each covariate:
 ggplot(covariates.m, aes(x = variable, y = value))+geom_violin(draw_quantiles = c(0.025, 0.25, 0.5, 0.75, 0.975), fill = "grey")+theme_bw()
-ggsave(here("tutorial/outputs", paste0("covariate_violin_plots_", model.name, ".png")))
+ggsave(paste0("outputs/covariate_violin_plots_", model.name, ".png"))
 
 # make plots of predicted vs observed for each tree/year
 # comparing predicted vs. observed
@@ -151,7 +151,7 @@ inc.pred <- dplyr::select(as.data.frame(model.1),"inc[1,1]":paste0("inc[", model
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
-source("tutorial/plot_pred_obs_data.R") # run script to make predicted vs obs plots
+source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # check the outputs folder, you should have two new pdfs, two new png files, and two new RDS files
 # this code plotted the predicted vs observed for this model 
 
@@ -164,14 +164,14 @@ source("tutorial/plot_pred_obs_data.R") # run script to make predicted vs obs pl
 # this model takes a little longer to run, so we will just run it with 2 chains to get some results
 model.name <- "TmaxPPTX"
 # add in the tree size effect with out the year random effects but with climate
-model.2 <- stan(file = "tutorial/modelcode/model_noyearRE_X.stan",
+model.2 <- stan(file = "modelcode/model_noyearRE_X.stan",
                 data = model.data,
                 iter = 3000, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
                 #sample_file = model.name,
                 #adapt_delta = 0.99,
                 pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaTmax", "betaPrecip", "betaX","alpha_TREE","x", "inc"))
 
-saveRDS(model.2, "tutorial/outputs/model.2.RDS")
+saveRDS(model.2, "outputs/model.2.RDS")
 # get model diagnostics and save these to look at
 sampler_params <- get_sampler_params(model.2, inc_warmup = FALSE)
 
@@ -185,7 +185,7 @@ sampler_diag <- data.frame(model.name = rep(model.name, 2),
 # we want few (no) divergent transitions so this is good
 sampler_diag
 # there are no divergent transistions in either chain, and acceptance rate > 0.89
-write.csv(sampler_diag, here("tutorial/outputs", paste0(model.name, "_sample_diag.csv")), row.names = FALSE)
+write.csv(sampler_diag, paste0("outputs/",model.name, "_sample_diag.csv"), row.names = FALSE)
 
 
 # get the convergence statistics of the model:
@@ -201,7 +201,7 @@ hist(ESS_tails)
 convergence.stats <- as.data.frame(rbind(Rhats, ESS_bulks, ESS_tails))
 convergence.stats$Statistic <- c("Rhat", "ESS_bulk", "ESS_tail")
 
-write.csv(convergence.stats, here("tutorial/outputs", paste0(model.name, "_convergence_stats.csv")))
+write.csv(convergence.stats, paste0("outputs/", model.name, "_convergence_stats.csv"))
 
 # also generate some plots of the parameters
 
@@ -209,14 +209,14 @@ posterior <- as.array(model.2)
 par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "alpha_TREE[1]")
 
 # traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
-png(height = 4, width = 7, units = "in", res = 100, paste0("tutorial/outputs/traceplots_tutorial_", model.name, ".png"))
+png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/traceplots_tutorial_", model.name, ".png"))
 traceplot (model.2, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
 dev.off()
 
 # check the pairs plots for posterior correlations
 # posterior correlations in the model might be expected, for example between an intercept and a slope, 
 # or they could cause problems with sampling/identifiablility
-png(height = 7, width = 7, units = "in", res = 100, paste0("tutorial/outputs/pairs_plot_tutorial_", model.name, ".png"))
+png(height = 7, width = 7, units = "in", res = 100, paste0("outputs/pairs_plot_tutorial_", model.name, ".png"))
 pairs(model.2, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaPrecip", "alpha_TREE[1]", "alpha_TREE[2]"))
 dev.off()
 # sigma_inc and sigma_add have somme posterior correlations, as do the alpha_TREE values with the tree size effect
@@ -243,7 +243,7 @@ ggplot()+geom_point(data = tree.quant, aes(x = variable, y = median))+
   theme(axis.text = element_text(angle= 45, hjust = 1), panel.grid = element_blank())+
   ylab("Estimated effect")
 
-ggsave(here("tutorial/outputs", paste0("tree_random_effects_", model.name, ".png")))
+ggsave( paste0("outputs/tree_random_effects_", model.name, ".png"))
 
 
 # Make a violin plot of the fixed effects. 
@@ -252,7 +252,7 @@ head(covariates.m)
 
 # make violin plots of the samples to look at the medians & the uncertainty around each covariate:
 ggplot(covariates.m, aes(x = variable, y = value))+geom_violin(draw_quantiles = c(0.025, 0.25, 0.5, 0.75, 0.975), fill = "grey")+theme_bw()
-ggsave(here("tutorial/outputs", paste0("covariate_violin_plots_", model.name, ".png")))
+ggsave( paste0("outputs/covariate_violin_plots_", model.name, ".png"))
 
 # make plots of predicted vs observed for each tree/year
 # comparing predicted vs. observed
@@ -265,7 +265,7 @@ inc.pred <- dplyr::select(as.data.frame(model.2),"inc[1,1]":paste0("inc[", model
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
-source("tutorial/plot_pred_obs_data.R") # run script to make predicted vs obs plots
+source("plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # check the outputs folder, you should have two new pdfs, two new png files, and two new RDS files
 # this code plotted the predicted vs observed for this model 
 
@@ -294,7 +294,7 @@ source("tutorial/plot_pred_obs_data.R") # run script to make predicted vs obs pl
 # run the model here
 model.name <- "TmaxPPTX_SDI"
 # add in the tree size effect with out the year random effects but with climate
-model.3 <- stan(file = "tutorial/modelcode/model_treesize_climate_sdi.stan",
+model.3 <- stan(file = "modelcode/model_treesize_climate_sdi.stan",
                 data = model.data,
                 iter = 3000, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
                 #sample_file = model.name,
@@ -316,7 +316,7 @@ sampler_diag <- data.frame(model.name = rep(model.name, 2),
 # we want few (no) divergent transitions so this is good
 sampler_diag
 # there are no divergent transistions in either chain, and acceptance rate > 0.89
-write.csv(sampler_diag, here("tutorial/outputs", paste0(model.name, "_sample_diag.csv")), row.names = FALSE)
+write.csv(sampler_diag,  paste0("outputs/", model.name, "_sample_diag.csv"), row.names = FALSE)
 
 
 # get the convergence statistics of the model:
@@ -332,7 +332,7 @@ hist(ESS_tails)
 convergence.stats <- as.data.frame(rbind(Rhats, ESS_bulks, ESS_tails))
 convergence.stats$Statistic <- c("Rhat", "ESS_bulk", "ESS_tail")
 
-write.csv(convergence.stats, here("tutorial/outputs", paste0(model.name, "_convergence_stats.csv")))
+write.csv(convergence.stats, paste0("outputs/", model.name, "_convergence_stats.csv"))
 
 # also generate some plots of the parameters
 
@@ -340,14 +340,14 @@ posterior <- as.array(model.3)
 par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "alpha_TREE[1]")
 
 # traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
-png(height = 4, width = 7, units = "in", res = 100, paste0("tutorial/outputs/traceplots_tutorial_", model.name, ".png"))
+png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/traceplots_tutorial_", model.name, ".png"))
 traceplot (model.3, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
 dev.off()
 
 # check the pairs plots for posterior correlations
 # posterior correlations in the model might be expected, for example between an intercept and a slope, 
 # or they could cause problems with sampling/identifiablility
-png(height = 7, width = 7, units = "in", res = 100, paste0("tutorial/outputs/pairs_plot_tutorial_", model.name, ".png"))
+png(height = 7, width = 7, units = "in", res = 100, paste0("outputs/pairs_plot_tutorial_", model.name, ".png"))
 pairs(model.3, pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaPrecip", "alpha_TREE[1]", "alpha_TREE[2]"))
 dev.off()
 # sigma_inc and sigma_add have somme posterior correlations, as do the alpha_TREE values with the tree size effect
@@ -374,7 +374,7 @@ ggplot()+geom_point(data = tree.quant, aes(x = variable, y = median))+
   theme(axis.text = element_text(angle= 45, hjust = 1), panel.grid = element_blank())+
   ylab("Estimated effect")
 
-ggsave(here("tutorial/outputs", paste0("tree_random_effects_", model.name, ".png")))
+ggsave( paste0("outputs/tree_random_effects_", model.name, ".png"))
 
 
 # Make a violin plot of the fixed effects. 
@@ -383,7 +383,7 @@ head(covariates.m)
 
 # make violin plots of the samples to look at the medians & the uncertainty around each covariate:
 ggplot(covariates.m, aes(x = variable, y = value))+geom_violin(draw_quantiles = c(0.025, 0.25, 0.5, 0.75, 0.975), fill = "grey")+theme_bw()
-ggsave(here("tutorial/outputs", paste0("covariate_violin_plots_", model.name, ".png")))
+ggsave(paste0("outputs/covariate_violin_plots_", model.name, ".png"))
 
 # make plots of predicted vs observed for each tree/year
 # comparing predicted vs. observed
@@ -396,7 +396,7 @@ inc.pred <- dplyr::select(as.data.frame(model.3),"inc[1,1]":paste0("inc[", model
 
 model.out <- cbind(x.pred, inc.pred) # get this to make plots
 mod.data <- model.data
-source("tutorial/plot_pred_obs_data.R") # run script to make predicted vs obs plots
+source("plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # check the outputs folder, you should have two new pdfs, two new png files, and two new RDS files
 # this code plotted the predicted vs observed for this model 
 
