@@ -56,6 +56,9 @@ ciEnvelope <- function(x, ylo, yhi, ...) {
   }
 } # ciEnvelope
 
+# read in dat and datz, the diameter and increment data respectively:
+dat <- readRDS("outputs/dat.rds")
+datz <- readRDS("outputs/datz.rds")
 
 # read in the posterior estimates that contain the estimates that we will validate:
 jags.comb <- model.out
@@ -79,7 +82,7 @@ colnames(data$z) <- colnames(data$y)
 # make the predicte and observed plots
 #model.out <- jags.out #jags.comb
 
-pdf(paste0("tutorial/outputs/plot_held_out_dbh",model.name,".pdf"))
+pdf(paste0("outputs/plot_held_out_dbh",model.name,".pdf"))
 
 layout(matrix(1:8, 4, 2, byrow = TRUE))
 out      <- as.matrix(model.out) ### LOADS MCMC OUTPUT INTO OBJECT "OUT"
@@ -123,7 +126,7 @@ for (i in smp) {
   
   out.sample.obs[[i]] <- data.frame(z.data = max(data$z[i,],na.rm =TRUE),
                                     year = colnames(data$z)[which(data$z[i, ]== max(data$z[i, ],na.rm =TRUE))],
-                                    #predvar = var.year[names(which( data$z[i, ]== max(data$z[i, ],na.rm =TRUE)))],
+                                    predvar = var.year[which( data$z[i, ]== max(data$z[i, ],na.rm =TRUE))],
                                     min.ci = ci.year[1,colnames(data$z)[which(data$z[i, ]== max(data$z[i, ],na.rm =TRUE))]],
                                     mean.ci = ci.year[2,colnames(data$z)[which(data$z[i, ]== max(data$z[i, ],na.rm =TRUE))]],
                                     max.ci = ci.year[3,colnames(data$z)[which(data$z[i, ]== max(data$z[i, ],na.rm =TRUE))]])#,
@@ -137,7 +140,7 @@ out.sample.dbh.df <- do.call(rbind,   out.sample.obs)
 summary.stats <- summary(lm(z.data ~ mean.ci, data = out.sample.dbh.df))
 
 
-saveRDS(out.sample.dbh.df, paste0("tutorial/outputs/", model.name,".pred.obs.out.of.sample.dbh.rds"))
+saveRDS(out.sample.dbh.df, paste0("outputs/", model.name,".pred.obs.out.of.sample.dbh.rds"))
 
 
 p.o.out.of.sample <- ggplot()+
@@ -148,7 +151,7 @@ p.o.out.of.sample <- ggplot()+
   theme_bw(base_size = 16)+theme(panel.grid = element_blank())+ylim(0, 80)+xlim(0, 80)#+
 #geom_text(data=data.frame(summary.stats$r.squared), aes( label = paste("R.sq: ", round(summary.stats$r.squared, digits = 3), sep="")),parse=T,x=20, y=75)
 
-ggsave( device = "png", height = 5, width = 5, units = "in", paste0("tutorial/outputs/",model.name, "_DBH_in_sample_p.o.plots.png"))
+ggsave( device = "png", height = 5, width = 5, units = "in", paste0("outputs/",model.name, "_DBH_in_sample_p.o.plots.png"))
 
 
 
@@ -199,7 +202,7 @@ ggsave( device = "png", height = 5, width = 5, units = "in", paste0("tutorial/ou
 #--------------------------------------------------------------------------
 # Validation for Increment (within sample only)
 #--------------------------------------------------------------------------
-pdf(paste0("tutorial/outputs/rw_insample_increment", model.name,".pdf"))
+pdf(paste0("outputs/rw_insample_increment", model.name,".pdf"))
 
 layout(matrix(1:8, 4, 2, byrow = TRUE))
 out      <- as.matrix(model.out) ### LOADS MCMC OUTPUT INTO OBJECT "OUT"
@@ -225,7 +228,7 @@ for (i in smp) {
   inc.mcmc <- out[,inc.cols[sel]] #apply(out[, x.cols[sel]], 1, diff)
   inc.ci   <- apply(inc.mcmc, 2, quantile, c(0.025, 0.5, 0.975))
   inc.names = parse.MatrixNames(colnames(ci),pre = "inc",numeric=TRUE)
-  var.pred.inc <- apply( inc.mcmc, 1, var)
+  var.pred.inc <- apply( inc.mcmc, 2, var)
   
   
   plot(data$time, inc.ci[2, ] , type = "n",
@@ -237,7 +240,7 @@ for (i in smp) {
   
   in.sample.inc[[i]] <- data.frame(inc.data = reshape2::melt(data$y[i,])[,2],
                                    year = data$time,
-                                   #predvar = var.pred.inc, # calculate varince of the predictions
+                                   predvar = as.vector(var.pred.inc), # calculate varince of the predictions
                                    min.ci = as.vector(inc.ci[1,]),
                                    mean.ci = as.vector(inc.ci[2,]),
                                    max.ci = as.vector(inc.ci[3,]), 
@@ -253,7 +256,7 @@ dev.off()
 in.sample.inc.df <- do.call(rbind,  in.sample.inc)
 summary.stats <- summary(lm(inc.data ~ mean.ci, data =in.sample.inc.df))
 
-saveRDS(in.sample.inc.df, paste0("tutorial/outputs/",model.name,"pred.obs.out.of.sample.inc.rds"))
+saveRDS(in.sample.inc.df, paste0("outputs/",model.name,"pred.obs.out.of.sample.inc.rds"))
 
 
 p.o.inc.in.sample <- ggplot()+
@@ -265,40 +268,7 @@ p.o.inc.in.sample <- ggplot()+
 
 p.o.inc.in.sample
 
-ggsave(device = "png", height = 5, width = 5, units = "in",  paste0("tutorial/outputs/", model.name, "_increment_in_sample_p.o.plots.png"))
-
-
-
-#-------------------------------------------------------------------------------------
-# calculating Error statistics for model valiation: Increments
-#-------------------------------------------------------------------------------------
-# want to calculate:
-# MSPE-mean squared predictive error
-# RMSE-root mean squared predictive error
-# MAPE-mean absolute predictive error
-# V1-check for bias over time
-# V2-accuracy of MSPE estimates
-# V3-goodness of fit to compare across models
-# PPL- calculating posterior predictive loss for model comparison:
-
-#PPL = sum((Zobs - predZ)^2) - sum(var(predZ))
-
-
-# in of sample calculations for increment
-# in.sample.validation.inc.metrics <- in.sample.inc.df %>% summarise(MSPE = mean((inc.data-mean.ci)^2, na.rm =TRUE), 
-#                                                                    RMSPE = sqrt(mean((inc.data-mean.ci)^2, na.rm =TRUE)),
-#                                                                    MAPE = mean(abs(inc.data-mean.ci), na.rm =TRUE), 
-#                                                                    V1 = mean(inc.data-mean.ci, na.rm =TRUE)/(sum(predvar)^(1/2))/n(), # estimate of bias in predictors over time (close to 0 = unbiased)
-#                                                                    V2 = (mean((inc.data-mean.ci)^2, na.rm =TRUE)/(sum(predvar)/n()^(1/2))),  # estimate of accuracy of MSPEs (close to 1 = accurate)
-#                                                                    V3 = (mean((inc.data-mean.ci)^2,na.rm =TRUE)^(1/2)),
-#                                                                    PPL = sum((inc.data - mean.ci)^2, na.rm = TRUE) + sum(predvar, na.rm = TRUE)) # posterior predictive loss# goodness of fit estimate (small = better fit)
-# in.sample.validation.inc.metrics$validation <- "in-sample"
-# # concatenate together + add the model name + description:
-# in.sample.validation.inc.metrics$model <- output.base.name
-# in.sample.validation.inc.metrics$description <- "Model with SDI, no SI, no random BetaX effects, plot random slopes"
-# 
-# write.csv(in.sample.validation.inc.metrics, paste0("data/output/",output.base.name, "model.validation.stats.inc.csv"), row.names = FALSE)
-
+ggsave(device = "png", height = 5, width = 5, units = "in",  paste0("outputs/", model.name, "_increment_in_sample_p.o.plots.png"))
 
 
 

@@ -153,6 +153,9 @@ row.id.samp <- sample(1:518, 50, replace = FALSE)
 tree.id <- rw.spread[row.id.samp, ]$tree
 dat <- unique(rw.spread[row.id.samp,2:length(rw.spread)])
 
+# save tree.id for use in the forecasting
+saveRDS(tree.id, "data/tree.id.rand.sample.rds")
+
 # STAN does not by default take missing data, so we need indexing for a missing data model
 # Extract the missing values into a VECTOR
 dat_complete <- dat[!is.na(dat)]
@@ -204,3 +207,12 @@ model.data <- list(Nrow = nrow(dat), # Nrow is the # of trees
 
 
 model.data
+
+# View all of the data inputs
+names(model.data)
+
+# save model.data
+saveRDS(model.data, "outputs/model.data.RDS")
+saveRDS(dat, "outputs/dat.rds") # save the increment data
+saveRDS(datz, "outputs/datz.rds") # save the diameter data
+# Next 

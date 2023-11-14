@@ -3,6 +3,14 @@
 #-------------------------------------------------------------------------------
 # We will run three versions of the state-space model, two of which are already coded up for you: 
 # `model_noyearRE.stan` and `model_noyearRE_X.stan`
+# load the packages used by this script
+library(tidyverse)
+library(dplR)
+library(reshape2)
+library(rstan)
+
+# read in the model.data object that we created before
+model.data <- readRDS("outputs/model.data.RDS")
 
 options(mc.cores = parallel::detectCores())
 # --------------------------------
@@ -12,27 +20,28 @@ options(mc.cores = parallel::detectCores())
 model.name <- "tree.size.only.model"
 
 # there are a few different ways to actually "run" the stan model, here we demonstrate compiliing the model:
+modelplot <- stan_model(file = "modelcode/model_3_plt_rand.stan")
 model1 <- stan_model(file = "modelcode/model_treesize_only.stan")
 
 # next we do the sampling steps of the model
 model.1 <- sampling(model1, # path to the .STAN file, which contains the actual model code
-                    data = model.data, # the data to use in the model
-                    iter = 100, # the number of iterations to run the model for--Here we will only run for 100 iterations
-                    # but for the model parameters to be trusted we would want to run the model for longer ~>3000 iterations
-                    # for the purpose of timing, we will have you just read in the fully converged model outputs 
-                    chains = 2, # the number of chains to run 
-                    verbose=FALSE, 
-                    control =  list(max_treedepth = 15), # control is where you can dig into specifics of the sampler
-                    # more info here: 
-                    #sample_file = model.name, #the sample_file argument will save samples in .csv files as you go
-                    #adapt_delta = 0.99,
-                    
-                    # important: STAN won't include estimates of a parameter in the output if you 
-                    # don't tell it to in the pars argument
-                    pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaX", "alpha_TREE","x", "inc"))
+                data = model.data, # the data to use in the model
+                iter = 100, # the number of iterations to run the model for--Here we will only run for 100 iterations
+                # but for the model parameters to be trusted we would want to run the model for longer ~>3000 iterations
+                # for the purpose of timing, we will have you just read in the fully converged model outputs 
+                chains = 2, # the number of chains to run 
+                verbose=FALSE, 
+                control =  list(max_treedepth = 10), # control is where you can dig into specifics of the sampler
+                # more info here: 
+                #sample_file = model.name, #the sample_file argument will save samples in .csv files as you go
+                #adapt_delta = 0.99,
+                
+                # important: STAN won't include estimates of a parameter in the output if you 
+                # don't tell it to in the pars argument
+                pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaX", "alpha_TREE","x", "inc"))
 
 
-# we could also just compile and run the model using the stan() call:
+# Note that we could also just compile and run the model using the stan() call:
 # model.1 <- stan(file = "modelcode/model_treesize_only.stan", # path to the .STAN file, which contains the actual model code
 #                 data = model.data, # the data to use in the model
 #                 iter = 100, # the number of iterations to run the model for
@@ -88,14 +97,14 @@ write.csv(convergence.stats, paste0("outputs/",model.name, "not_converged_conver
 posterior <- as.array(model.1)
 par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","alpha_TREE[1]")
 
-# traceplots show the values of each parameter over the number of samples. Values should vary, but center around a single value
-#png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/not_converged_traceplots_tutorial_", model.name, ".png"))
+# generate traceplots the short model, this is an example of a model that needs to be run for longer
 traceplot (model.1, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
-#dev.off()
+
 
 # Now that we have seen what traceplots look like when they have not converged, lets read in the output from the same model, but with 3000 samples
 model.1 <- readRDS("longOutputs/model.1.RDS")
 
+# generate traceplots for the longer model run
 png(height = 4, width = 7, units = "in", res = 100, paste0("outputs/traceplots_tutorial_", model.name, ".png"))
 traceplot (model.1, pars = par.names, nrow = 8, ncol = 4, inc_warmup = FALSE) 
 dev.off()
@@ -163,13 +172,26 @@ source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # Normally, you would only add in one variable at a time so if something goes wrong, you know which addition to the model is causing an issue
 # this model takes a little longer to run, so we will just run it with 2 chains to get some results
 model.name <- "TmaxPPTX"
-# add in the tree size effect with out the year random effects but with climate
-model.2 <- stan(file = "modelcode/model_noyearRE_X.stan",
-                data = model.data,
-                iter = 3000, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
-                #sample_file = model.name,
-                #adapt_delta = 0.99,
-                pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaTmax", "betaPrecip", "betaX","alpha_TREE","x", "inc"))
+
+model2 <- stan_model(file = "modelcode/model_noyearRE_X.stan")
+# next we do the sampling steps of the model
+model.2 <- sampling(model2, # path to the .STAN file, which contains the actual model code
+                    data = model.data, # the data to use in the model
+                    iter = 100, # the number of iterations to run the model for--Here we will only run for 100 iterations
+                    # but for the model parameters to be trusted we would want to run the model for longer ~>3000 iterations
+                    # for the purpose of timing, we will have you just read in the fully converged model outputs 
+                    chains = 2, # the number of chains to run 
+                    verbose=FALSE, 
+                    control =  list(max_treedepth = 10), # control is where you can dig into specifics of the sampler --we probably want to switch this to 15
+                    # more info here: 
+                    #sample_file = model.name, #the sample_file argument will save samples in .csv files as you go
+                    #adapt_delta = 0.99,
+                    
+                    # important: STAN won't include estimates of a parameter in the output if you 
+                    # don't tell it to in the pars argument
+                    pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaX", "alpha_TREE","x", "inc"))
+
+
 
 saveRDS(model.2, "outputs/model.2.RDS")
 
@@ -277,7 +299,7 @@ source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 #--------------------------------------------------------------------------------------
 # Run a third model, but this time add in a plot level competition variable SDI
 #--------------------------------------------------------------------------------------
-# Make a copy of the stan code for the previous model, and save as "model_treesize_climate_sdi.stan"
+# Make a copy of the stan code for the previous model, and save as "model_3.stan"
 # save it in the modelcode folder
 
 # in the data block, tell stan to expect SDI by pasting the following, without the #:
@@ -294,20 +316,30 @@ source("R/plot_pred_obs_data.R") # run script to make predicted vs obs plots
 # inc[i,t] ~ lognormal(alpha_TREE[i] + betaTmax*tmaxAprMayJunscaled[i,t]+ betaPrecip*wateryrscaled[i,t] + betaSDI*SDI[i], sigma_add);
 
 # before running the model you can hit the "check" button to check that the stan code syntax is correct
+rm(model.1, model.2) # tidying up the environment
 
 # run the model here
 model.name <- "TmaxPPTX_SDI"
+
+
 # add in the tree size effect with out the year random effects but with climate
-model.3 <- stan(file = "modelcode/model_treesize_climate_sdi.stan",
+# 
+model3 <- stan_model(file = "modelcode/model_3.stan")
+
+# sampling for model 3
+model.3 <- sampling(
+                    model3,
                 data = model.data,
-                iter = 100, chains = 2, verbose=FALSE, control =  list(max_treedepth = 15),
+                iter = 100, chains = 2, verbose=FALSE, 
+                control =  list(max_treedepth = 10),
                 #sample_file = model.name,
                 #adapt_delta = 0.99,
                 pars = c("mu", "sigma_inc", "sigma_add", "sigma_dbh","betaTmax", "betaPrecip", "betaX",
                          "betaSDI","alpha_TREE","x", "inc"))
 
-
-
+#model2 <- stan_model(file = "modelcode/model_noyearRE_X.stan")
+# next we do the sampling steps of the model
+#
 # check the traceplots for the short model run:
 par.names = c("mu", "sigma_inc", "sigma_add", "sigma_dbh", "betaX","betaTmax", "betaPrecip", "betaSDI","alpha_TREE[1]")
 
@@ -394,6 +426,7 @@ ggsave( paste0("outputs/tree_random_effects_", model.name, ".png"))
 # Make a violin plot of the fixed effects. 
 covariates.m <- reshape2::melt(cov.estimates)
 head(covariates.m)
+
 
 # make violin plots of the samples to look at the medians & the uncertainty around each covariate:
 ggplot(covariates.m, aes(x = variable, y = value))+geom_violin(draw_quantiles = c(0.025, 0.25, 0.5, 0.75, 0.975), fill = "grey")+theme_bw()
