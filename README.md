@@ -14,3 +14,5 @@ The repository has the folder `R`, which holds the R code for the tutorial. We w
 
 All of the STAN model structures are stored in .stan files, in the `modelcode` folder. There are four models that we will call from `02_Run_STAN_models.R` and we will edit at least one of them. Briefly, we build up from a base state-space model with a tree-level random effect and a tree size fixed effect, then we include climate variables, and finally we include a competition effect. These models are simplified for the purpose of this tutorial. 
 
+You can find few examples of random effect structures in the STAN code that we added during a workshop, which have not been run with the existing data, but are examples to work from when attempting to add in your own tree-ring and forest inventory data. These are in the 'modelcode' folder. 'model_3_plt_rand.stan' shows and example of adding a plot-level random effect with plot indexing, and 'model_3_plt_rand_MAP.stan' adds onto this with indexing for a climate variable where the data is provided at the plot-level rather than a data value for each tree. 
+

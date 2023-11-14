@@ -48,6 +48,7 @@ parameters {
     real betaPrecip;
     real betaX;
     real betaSDI;
+    real betaMAP;
 
     
   
