@@ -1,6 +1,7 @@
 data {
     int<lower=0> Nrow;
     int<lower=0> Ncol;
+    int<lower=0> Nplot; //Number of plots
     int<lower=0> Ncomp; // Number of non-missing values. 
     int<lower=0> Nmiss; // Number of missing values
     real dat_complete[Ncomp];   // Vector of non-missing values
@@ -11,17 +12,20 @@ data {
     int<lower=0> Ncol_z;
     int<lower=0> Ncomp_z; // Number of non-missing values. 
     int<lower=0> Nmiss_z; // Number of missing values
+    
+    int idx_plot[Nrow];
     real dat_completez[Ncomp_z];   // Vector of non-missing values
     int ind_presz[Ncomp_z, 2];     // Matrix (row, col) of non-missing value indices
     int ind_missz[Nmiss_z, 2];     // Matrix (row, col) of missing value indices
     real tmaxAprMayJunscaled[Nrow, Ncol];
     real wateryrscaled[Nrow, Ncol];
-    
+    real SDI[Nrow];
     
 }
 parameters {
     // Multivariate normal distribution parameters
     real mu;
+    real mu_plot;
     real<lower=0, upper =5> sigma_inc;
     real<lower=0, upper =5> sigma_add;
     real<lower=0, upper =5> sigma_dbh;
@@ -31,7 +35,10 @@ parameters {
     real<lower=0> inc[Nrow, Ncol];
     real<lower=0> xinit[Nrow];
     real alpha_TREE[Nrow];
+    real alpha_PLOT[Nplot];
     real<lower=1e-6> sigma_TREE;
+    real<lower=1e-6> sigma_PLOT;
+    
   
     real beta_YEAR[Ncol];
     real<lower=1e-6> sigma_YEAR;
@@ -39,6 +46,7 @@ parameters {
     real betaTmax;
     real betaPrecip;
     real betaX;
+    real betaSDI;
 
     
   
@@ -90,19 +98,26 @@ model {
   
   for(i in 1:Nrow) {
     alpha_TREE[i] ~ normal(mu, sigma_TREE);
- 
   }
   
+  for(i in 1:Nplot) {
+    alpha_PLOT[i] ~ normal(mu_plot, sigma_PLOT);
+  }
  
 // variance priors
  sigma_dbh ~ normal(1, 0.01); 
  sigma_inc ~ normal(0.035, 0.01);
  sigma_add ~ uniform(0, 5);
+ sigma_PLOT ~ uniform(0, 5);
  
 //fixed effect priors
  betaTmax ~ normal(0, 10);
  betaPrecip ~ normal(0, 10);
  betaX ~ normal(0, 10);
+ betaSDI ~ normal(0, 10);
+ mu_plot ~ normal(0, 10);
+ 
+
 
  
 //data & process model for increment
@@ -117,9 +132,9 @@ model {
      for(t in 2:Ncol){
        //process model linear equation
        //Add in SDI effect here:
-       inc[i,t] ~ lognormal(alpha_TREE[i] + betaX*x[i,t-1]+
+       inc[i,t] ~ lognormal(alpha_TREE[i] + alpha_PLOT[idx_plot[i]]+ betaX*x[i,t-1]+
        betaTmax*tmaxAprMayJunscaled[i,t]+ 
-       betaPrecip*wateryrscaled[i,t] , sigma_add);// + betaPrecip_MAT*wateryrscaled[i,t]*MAT[i] + betaSDI*SDI[i,t] + betaPrecip_Tmax*wateryrscaled[i,t]*tmaxAprMayJunscaled[i,t], sigma_add);
+       betaPrecip*wateryrscaled[i,t] + betaSDI*SDI[i] , sigma_add);// + betaPrecip_MAT*wateryrscaled[i,t]*MAT[i] + betaSDI*SDI[i,t] + betaPrecip_Tmax*wateryrscaled[i,t]*tmaxAprMayJunscaled[i,t], sigma_add);
        
        //increment data model
          y[i,t] ~ normal(inc[i,t], sigma_inc)T[0,];

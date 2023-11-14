@@ -1,4 +1,3 @@
-# STAN model
 data {
     int<lower=0> Nrow;
     int<lower=0> Ncol;
@@ -15,9 +14,7 @@ data {
     real dat_completez[Ncomp_z];   // Vector of non-missing values
     int ind_presz[Ncomp_z, 2];     // Matrix (row, col) of non-missing value indices
     int ind_missz[Nmiss_z, 2];     // Matrix (row, col) of missing value indices
-    //real tmaxAprMayJunscaled[Nrow, Ncol];
-    //real wateryrscaled[Nrow, Ncol];
-    
+   
     
 }
 parameters {
@@ -33,17 +30,11 @@ parameters {
     real<lower=0> xinit[Nrow];
     real alpha_TREE[Nrow];
     real<lower=1e-6> sigma_TREE;
-  
-    real beta_YEAR[Ncol];
-    real<lower=1e-6> sigma_YEAR;
- 
-    //real betaTmax;
-    //real betaPrecip;
+
     real betaX;
 
     
   
-   // real betaX_TREE[Nrow];
 
 }
 
@@ -91,26 +82,14 @@ model {
   
   for(i in 1:Nrow) {
     alpha_TREE[i] ~ normal(mu, sigma_TREE);
-   //betaX_TREE[i] ~ normal(0, 10);
   }
   
-  for(t in 1:Ncol) {
-    beta_YEAR[t] ~ normal(0, sigma_YEAR);
-  }
-
- //sigma_dbh ~ uniform(0.0001, 5);
- // sigma_dbh ~ normal(0.1, 0.1); //normal(1,0.01) works well on base model
-sigma_dbh ~ normal(1, 0.01); //normal(1,0.01) works well on base model
-// sigma_dbh ~ normal(0.13, 0.1) //try this out 
-
- //sigma_dbh ~ normal(0.15, 0.08);
- //sigma_dbh ~ normal(0, 5);
- sigma_inc ~ normal(0.035, 0.01);
- sigma_add ~ uniform(0, 5);
+ //Variance priors
+ sigma_dbh ~ normal(1, 0.01); //weakly informative diameter prior
+ sigma_inc ~ normal(0.035, 0.01);//informative prior based on remeasurements of tree ring data
+ sigma_add ~ uniform(0, 5);//could also use half cauchy?
  
- 
- //betaTmax ~ normal(0, 10);
- //betaPrecip ~ normal(0, 10);
+ //fixed effects priors
  betaX ~ normal(0, 10);
 
  
@@ -120,20 +99,22 @@ sigma_dbh ~ normal(1, 0.01); //normal(1,0.01) works well on base model
       // initial condition for diameter
     xinit[i]  ~ uniform(0, 75);
       y[i,1] ~ normal(inc[i,1], sigma_inc)T[0,];
-        inc[i,1] ~ normal(mu, sigma_add);
+        inc[i,1] ~ lognormal(0.5, sigma_add);
       z[i,1] ~ normal(x[i,1], 5); //or normal(x[i,1], sigma_dbh);
 
      for(t in 2:Ncol){
+       //process model 
        inc[i,t] ~ lognormal(alpha_TREE[i] + betaX*x[i,t-1], sigma_add);
        
+       //increment data model
          y[i,t] ~ normal(inc[i,t], sigma_inc)T[0,];
-        
+        //diameter data model
          z[i,t] ~ normal(x[i,t], sigma_dbh);
          
     }
   }
   
-//print("xinit = ", xinit)
+
 }
 // generated quantities {
 //   real log_lik[Nrow, Ncol];

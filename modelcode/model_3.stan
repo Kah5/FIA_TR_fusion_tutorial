@@ -1,6 +1,7 @@
 data {
     int<lower=0> Nrow;
     int<lower=0> Ncol;
+    int<lower=0> Nplot;
     int<lower=0> Ncomp; // Number of non-missing values. 
     int<lower=0> Nmiss; // Number of missing values
     real dat_complete[Ncomp];   // Vector of non-missing values
@@ -16,7 +17,7 @@ data {
     int ind_missz[Nmiss_z, 2];     // Matrix (row, col) of missing value indices
     real tmaxAprMayJunscaled[Nrow, Ncol];
     real wateryrscaled[Nrow, Ncol];
-    
+    real SDI[Nrow];
     
 }
 parameters {
@@ -39,6 +40,7 @@ parameters {
     real betaTmax;
     real betaPrecip;
     real betaX;
+    real betaSDI;
 
     
   
@@ -103,6 +105,7 @@ model {
  betaTmax ~ normal(0, 10);
  betaPrecip ~ normal(0, 10);
  betaX ~ normal(0, 10);
+ betaSDI ~ normal(0, 10);
 
  
 //data & process model for increment
@@ -119,7 +122,7 @@ model {
        //Add in SDI effect here:
        inc[i,t] ~ lognormal(alpha_TREE[i] + betaX*x[i,t-1]+
        betaTmax*tmaxAprMayJunscaled[i,t]+ 
-       betaPrecip*wateryrscaled[i,t] , sigma_add);// + betaPrecip_MAT*wateryrscaled[i,t]*MAT[i] + betaSDI*SDI[i,t] + betaPrecip_Tmax*wateryrscaled[i,t]*tmaxAprMayJunscaled[i,t], sigma_add);
+       betaPrecip*wateryrscaled[i,t] + betaSDI*SDI[i] , sigma_add);// + betaPrecip_MAT*wateryrscaled[i,t]*MAT[i] + betaSDI*SDI[i,t] + betaPrecip_Tmax*wateryrscaled[i,t]*tmaxAprMayJunscaled[i,t], sigma_add);
        
        //increment data model
          y[i,t] ~ normal(inc[i,t], sigma_inc)T[0,];
