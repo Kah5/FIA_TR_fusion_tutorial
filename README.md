@@ -16,3 +16,13 @@ All of the STAN model structures are stored in .stan files, in the `modelcode` f
 
 You can find few examples of random effect structures in the STAN code that we added during a workshop, which have not been run with the existing data, but are examples to work from when attempting to add in your own tree-ring and forest inventory data. These are in the 'modelcode' folder. 'model_3_plt_rand.stan' shows and example of adding a plot-level random effect with plot indexing, and 'model_3_plt_rand_MAP.stan' adds onto this with indexing for a climate variable where the data is provided at the plot-level rather than a data value for each tree. 
 
+## Update after the Workshop
+
+Based on discussions we had during the workshop in November 2023, we made some progress on improving speed and reducing redundancy in the state-space model. These updates are characterized in `model_3_nomissing_xscaled.stan`. 
+
+Specifically we changed the following:
+  1. removed the missing data model and rely on the generated quantities block for predicting 
+  2. we are scaling each estimated tree size (x) by the mean and SD of the observed diameters (lines 59-60); if you are working with your own data, you will want to change this.
+  3. the input tree ring and diameter data (y,x) are all read in as "long format," and indexed to the year and tree using indices in stan.
+  
+
