@@ -24,5 +24,6 @@ Specifically we changed the following:
   1. removed the missing data model and rely on the generated quantities block for predicting 
   2. we are scaling each estimated tree size (x) by the mean and SD of the observed diameters (lines 59-60); if you are working with your own data, you will want to change this.
   3. the input tree ring and diameter data (y,x) are all read in as "long format," and indexed to the year and tree using indices in stan.
-  
+
+To see the datastructure and sample from the updated version of the model, look at `01_prep_TR_INV_DATA_longformat.R` and `02_Run_STAN_model_longformat.R`
 
